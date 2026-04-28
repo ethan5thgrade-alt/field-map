@@ -64,7 +64,7 @@ export default function LandingPage({ onGetStarted }: LandingPageProps) {
               color: "var(--ink-display)",
             }}
           >
-            Field Map
+            Sitelab
           </span>
         </div>
 
@@ -254,7 +254,7 @@ export default function LandingPage({ onGetStarted }: LandingPageProps) {
       {/* Footer */}
       <footer className="border-t border-ink-border py-6 text-center">
         <p style={{ fontFamily: "var(--font-mono)", fontSize: "0.6rem", color: "var(--ink-disabled)" }}>
-          Field Map &middot; Built for sales reps who hustle
+          Sitelab &middot; Built for sales reps who hustle
         </p>
       </footer>
     </div>

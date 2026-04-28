@@ -27,7 +27,7 @@ export default function Header({ coordinates }: HeaderProps) {
             fontVariationSettings: '"opsz" 48',
           }}
         >
-          Field Map
+          Sitelab
         </h1>
       </div>
 

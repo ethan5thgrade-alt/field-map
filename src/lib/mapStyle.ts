@@ -7,7 +7,7 @@
  */
 export const FIELD_MAP_STYLE: mapboxgl.StyleSpecification = {
   version: 8,
-  name: "Field Map Paper",
+  name: "Sitelab Paper",
   sources: {
     "mapbox-streets": {
       type: "vector",

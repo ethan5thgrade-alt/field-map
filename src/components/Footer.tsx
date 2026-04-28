@@ -65,7 +65,7 @@ export default function Footer() {
           fontSize: "0.6rem",
         }}
       >
-        Field Map v0.1
+        Sitelab v0.1
       </p>
     </footer>
   );

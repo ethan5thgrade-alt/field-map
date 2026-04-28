@@ -50,7 +50,7 @@ export default function NavBar() {
               color: "var(--ink-display)",
             }}
           >
-            Field Map
+            Sitelab
           </span>
         </Link>
 

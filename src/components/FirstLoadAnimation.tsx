@@ -146,7 +146,7 @@ export default function FirstLoadAnimation({
           transitionDelay: "0.2s",
         }}
       >
-        Field Map
+        Sitelab
       </h1>
       <p
         className="mt-2"
@@ -161,7 +161,7 @@ export default function FirstLoadAnimation({
           transitionDelay: "0.5s",
         }}
       >
-        Cold Outreach Discovery
+        Find. Pitch. Close.
       </p>
     </div>
   );

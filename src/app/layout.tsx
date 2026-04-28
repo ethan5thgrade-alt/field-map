@@ -34,9 +34,9 @@ const sourceSerif = Source_Serif_4({
 });
 
 export const metadata: Metadata = {
-  title: "Field Map — Cold Outreach Discovery",
+  title: "Sitelab — Cold Outreach Discovery",
   description:
-    "Drop a pin. Find businesses. Generate pitches. A cartographer's tool for sales.",
+    "Drop a pin. Find businesses. Generate pitches. The outreach tool for sales reps.",
 };
 
 export default function RootLayout({
