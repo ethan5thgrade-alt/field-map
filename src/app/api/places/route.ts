@@ -154,7 +154,7 @@ export async function POST(request: NextRequest) {
               redirect: "follow",
               signal: controller.signal,
               headers: {
-                "User-Agent": "Mozilla/5.0 (compatible; FieldMap/1.0; website-check)",
+                "User-Agent": "Mozilla/5.0 (compatible; Sitelab/1.0; website-check)",
               },
             });
             clearTimeout(timeout);

@@ -21,11 +21,13 @@ const NAMES: Record<string, string[]> = {
     "Golden Fork Bistro", "Casa del Sol", "The Hungry Rooster",
     "Jade Palace", "Nonna's Kitchen", "Riverside Grill",
     "Blue Agave Cantina", "The Rusty Skillet", "Maple & Vine",
+    "Copper Pot Kitchen", "The Lime House", "Fireside BBQ",
   ],
   contractor: [
     "Summit Builders LLC", "Ironwood Construction", "Pinnacle Roofing Co",
     "Cedar Valley Plumbing", "Granite State Electric", "Trueblue Handyman",
     "Cornerstone Renovations", "Ridgeline Fencing", "Atlas Concrete",
+    "Westward Builders", "Skyline Roofing", "Reliable Plumbing Co",
   ],
   salon: [
     "The Polished Look", "Velvet Shears", "Luxe Hair Studio",
@@ -35,14 +37,17 @@ const NAMES: Record<string, string[]> = {
   auto: [
     "Precision Auto Care", "Roadmaster Garage", "AllStar Tire & Brake",
     "Apex Auto Body", "Westside Motors Service", "QuickLube Express",
+    "Summit Auto Repair", "CrossTown Motors", "Eagle Tire Center",
   ],
   retail: [
     "Hometown Hardware", "The Paper Lantern", "Second Wind Thrift",
     "Wildflower Boutique", "Main Street Mercantile", "The Good Stuff",
+    "Copper & Thread", "The Find", "Valley Goods Co",
   ],
   professional: [
     "Clearview Accounting", "Oakmont Legal Group", "Brightpath Insurance",
     "Keystone Financial", "Heritage Realty", "Compass Tax Services",
+    "Summit Law Group", "Greenleaf Advisors", "Beacon Financial",
   ],
 };
 
@@ -66,18 +71,24 @@ export function generateMockBusinesses(
   radiusMiles: number,
   count: number = 30
 ): Business[] {
-  const categories = Object.keys(NAMES);
+  // Build a shuffled pool of all (category, name) pairs
+  const pool: { category: string; name: string }[] = [];
+  for (const [cat, names] of Object.entries(NAMES)) {
+    for (const name of names) {
+      pool.push({ category: cat, name });
+    }
+  }
+  // Fisher-Yates shuffle
+  for (let i = pool.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [pool[i], pool[j]] = [pool[j], pool[i]];
+  }
+
   const businesses: Business[] = [];
-  const usedNames = new Set<string>();
+  const toGenerate = Math.min(count, pool.length);
 
-  for (let i = 0; i < count; i++) {
-    const category = randomFrom(categories);
-
-    // Pick a name that hasn't been used yet
-    const available = NAMES[category].filter((n) => !usedNames.has(n));
-    if (available.length === 0) continue; // skip if all names used for this category
-    const name = randomFrom(available);
-    usedNames.add(name);
+  for (let i = 0; i < toGenerate; i++) {
+    const { category, name } = pool[i];
     const distanceMiles = randomBetween(0.2, radiusMiles);
 
     // Random point within radius

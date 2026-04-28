@@ -299,17 +299,17 @@ body {
 }
 
 /* ── Map Pin Styles ── */
-.field-map-pin {
+.sitelab-pin {
   cursor: pointer;
   position: relative;
 }
 
-.field-map-pin .pin-container {
+.sitelab-pin .pin-container {
   position: relative;
   filter: drop-shadow(0 2px 4px rgba(31, 36, 33, 0.25));
 }
 
-.field-map-pin .pin-shadow {
+.sitelab-pin .pin-shadow {
   position: absolute;
   bottom: -2px;
   left: 50%;
@@ -320,7 +320,7 @@ body {
   border-radius: 50%;
 }
 
-.field-map-pin .pin-ripple-container {
+.sitelab-pin .pin-ripple-container {
   position: absolute;
   bottom: 0;
   left: 50%;
@@ -329,7 +329,7 @@ body {
   height: 0;
 }
 
-.field-map-pin .pin-ripple {
+.sitelab-pin .pin-ripple {
   position: absolute;
   top: -6px;
   left: -6px;

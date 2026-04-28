@@ -1,11 +1,11 @@
 /**
- * Custom Mapbox style that matches the Field Map paper-toned aesthetic.
+ * Custom Mapbox style that matches the Sitelab paper-toned aesthetic.
  * This is a programmatic fallback — ideally replaced by a Mapbox Studio style URL.
  *
  * To use a Mapbox Studio style instead, set NEXT_PUBLIC_MAPBOX_STYLE_URL
  * in your .env.local file.
  */
-export const FIELD_MAP_STYLE: mapboxgl.StyleSpecification = {
+export const SITELAB_STYLE: mapboxgl.StyleSpecification = {
   version: 8,
   name: "Sitelab Paper",
   sources: {

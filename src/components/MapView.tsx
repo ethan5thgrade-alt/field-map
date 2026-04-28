@@ -178,7 +178,7 @@ export default function MapView({
       if (markerRef.current) markerRef.current.remove();
 
       const el = document.createElement("div");
-      el.className = "field-map-pin";
+      el.className = "sitelab-pin";
       el.innerHTML = `
         <div class="pin-container">
           <svg width="28" height="40" viewBox="0 0 28 40" fill="none">
