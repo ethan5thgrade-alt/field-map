@@ -1,26 +1,410 @@
 @import "tailwindcss";
 
+/* ── Design Tokens ── */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* Base layers — warm paper with depth */
+  --bg-deepest: #EDE6D6;
+  --bg-mid: #F4EFE6;
+  --bg-card: #FBF7EF;
+  --bg-elevated: #FFFDF8;
+
+  /* Ink hierarchy */
+  --ink-display: #1A1D1A;
+  --ink-primary: #1F2421;
+  --ink-secondary: #5C5F58;
+  --ink-tertiary: #8B8B7E;
+  --ink-disabled: #B8B5A8;
+  --ink-border: #D9D2C2;
+
+  /* Cartographic accents */
+  --red: #C2410C;
+  --red-pressed: #9A2E08;
+  --green: #3F6B4E;
+  --green-deep: #2D4F38;
+  --goldenrod: #B8860B;
+  --goldenrod-deep: #8B6508;
+  --teal: #2D5F7C;
+  --teal-deep: #1F4256;
+  --brass: #A87C3F;
+
+  /* Topographic gradient steps */
+  --topo-1: #F4EFE6;
+  --topo-2: #EADFC7;
+  --topo-3: #D4C4A0;
+  --topo-4: #B8A678;
+  --topo-5: #9C8956;
+  --topo-6: #6F5F38;
+
+  /* Font families (set by next/font CSS variables) */
+  --font-display: var(--font-fraunces), Georgia, serif;
+  --font-serif: var(--font-source-serif), Georgia, serif;
+  --font-sans: var(--font-inter), system-ui, sans-serif;
+  --font-mono: var(--font-jetbrains), 'Courier New', monospace;
 }
 
+/* ── Tailwind v4 Theme ── */
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-background: var(--bg-deepest);
+  --color-foreground: var(--ink-primary);
+
+  --color-paper-deep: var(--bg-deepest);
+  --color-paper-mid: var(--bg-mid);
+  --color-paper-card: var(--bg-card);
+  --color-paper-elevated: var(--bg-elevated);
+
+  --color-ink-display: var(--ink-display);
+  --color-ink-primary: var(--ink-primary);
+  --color-ink-secondary: var(--ink-secondary);
+  --color-ink-tertiary: var(--ink-tertiary);
+  --color-ink-disabled: var(--ink-disabled);
+  --color-ink-border: var(--ink-border);
+
+  --color-surveyor-red: var(--red);
+  --color-surveyor-red-pressed: var(--red-pressed);
+  --color-forest-green: var(--green);
+  --color-forest-green-deep: var(--green-deep);
+  --color-goldenrod: var(--goldenrod);
+  --color-goldenrod-deep: var(--goldenrod-deep);
+  --color-deep-teal: var(--teal);
+  --color-deep-teal-deep: var(--teal-deep);
+  --color-brass: var(--brass);
+
+  --color-topo-1: var(--topo-1);
+  --color-topo-2: var(--topo-2);
+  --color-topo-3: var(--topo-3);
+  --color-topo-4: var(--topo-4);
+  --color-topo-5: var(--topo-5);
+  --color-topo-6: var(--topo-6);
+
+  --font-display: var(--font-fraunces), Georgia, serif;
+  --font-serif: var(--font-source-serif), Georgia, serif;
+  --font-sans: var(--font-inter), system-ui, sans-serif;
+  --font-mono: var(--font-jetbrains), 'Courier New', monospace;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+/* ── Base Styles ── */
+html {
+  font-size: 16px;
+  line-height: 1.65;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--bg-deepest);
+  color: var(--ink-primary);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ── Typography Scale (1.250 major third) ── */
+.text-display-xl {
+  font-family: var(--font-display);
+  font-size: clamp(3rem, 5vw, 6rem);
+  line-height: 1.15;
+  font-weight: 400;
+  font-variation-settings: "opsz" 144;
+  color: var(--ink-display);
+}
+
+.text-display-lg {
+  font-family: var(--font-display);
+  font-size: clamp(2.441rem, 4vw, 4rem);
+  line-height: 1.15;
+  font-weight: 400;
+  font-variation-settings: "opsz" 72;
+  color: var(--ink-display);
+}
+
+.text-display-md {
+  font-family: var(--font-display);
+  font-size: clamp(1.953rem, 3vw, 2.5rem);
+  line-height: 1.2;
+  font-weight: 400;
+  font-variation-settings: "opsz" 48;
+  color: var(--ink-display);
+}
+
+.text-heading {
+  font-family: var(--font-serif);
+  font-size: 1.563rem;
+  line-height: 1.25;
+  font-weight: 600;
+  color: var(--ink-display);
+}
+
+.text-subheading {
+  font-family: var(--font-serif);
+  font-size: 1.25rem;
+  line-height: 1.35;
+  font-weight: 500;
+  color: var(--ink-primary);
+}
+
+.text-body {
+  font-family: var(--font-sans);
+  font-size: 1rem;
+  line-height: 1.65;
+  color: var(--ink-primary);
+}
+
+.text-body-sm {
+  font-family: var(--font-sans);
+  font-size: 0.8rem;
+  line-height: 1.5;
+  color: var(--ink-secondary);
+}
+
+.text-mono {
+  font-family: var(--font-mono);
+  font-size: 0.875rem;
+  line-height: 1.5;
+  letter-spacing: -0.01em;
+}
+
+.text-cartographic {
+  font-family: var(--font-sans);
+  font-feature-settings: "smcp", "c2sc";
+  letter-spacing: 0.12em;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  color: var(--ink-secondary);
+}
+
+/* ── Paper Grain Overlay ── */
+.paper-grain {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 50;
+  opacity: 0.04;
+  mix-blend-mode: multiply;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+  background-size: 256px 256px;
+}
+
+/* ── Contour Line Animation ── */
+@keyframes contour-draw {
+  0% { stroke-dashoffset: 2000; }
+  50% { stroke-dashoffset: 0; }
+  100% { stroke-dashoffset: -2000; }
+}
+
+.contour-line {
+  stroke-dasharray: 2000;
+  animation: contour-draw 60s linear infinite;
+}
+
+/* ── Compass Rose Rotation ── */
+@keyframes compass-rotate {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.compass-rose {
+  animation: compass-rotate 300s linear infinite;
+}
+
+/* ── Pin Drop Animation ── */
+@keyframes pin-drop {
+  0% { transform: translateY(-60px); opacity: 0; }
+  60% { transform: translateY(4px); opacity: 1; }
+  80% { transform: translateY(-2px); }
+  100% { transform: translateY(0); }
+}
+
+@keyframes ripple-out {
+  0% { transform: scale(0); opacity: 0.6; }
+  100% { transform: scale(3); opacity: 0; }
+}
+
+@keyframes pin-pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.08); }
+}
+
+/* ── Card Stagger Fade ── */
+@keyframes card-fade-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* ── Compass Spinner ── */
+@keyframes compass-spin {
+  0% { transform: rotate(0deg); }
+  70% { transform: rotate(380deg); }
+  85% { transform: rotate(355deg); }
+  95% { transform: rotate(362deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.compass-spinner {
+  animation: compass-spin 1.5s cubic-bezier(0.23, 1, 0.32, 1) infinite;
+}
+
+/* ── Button Shimmer ── */
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+/* ── Modal ── */
+@keyframes modal-in {
+  from { opacity: 0; transform: scale(0.96); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+/* ── Blinking Cursor ── */
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
+/* ── Stroke Draw (for first-load compass) ── */
+@keyframes stroke-draw {
+  from { stroke-dashoffset: 1000; }
+  to { stroke-dashoffset: 0; }
+}
+
+/* ── Reduced Motion ── */
+@media (prefers-reduced-motion: reduce) {
+  .contour-line { animation: none; }
+  .compass-rose { animation: none; }
+  .compass-spinner { animation: compass-spin 1.5s cubic-bezier(0.23, 1, 0.32, 1) 1; }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* ── Scrollbar Styling ── */
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--bg-mid);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--ink-border);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--ink-tertiary);
+}
+
+/* ── Map Pin Styles ── */
+.field-map-pin {
+  cursor: pointer;
+  position: relative;
+}
+
+.field-map-pin .pin-container {
+  position: relative;
+  filter: drop-shadow(0 2px 4px rgba(31, 36, 33, 0.25));
+}
+
+.field-map-pin .pin-shadow {
+  position: absolute;
+  bottom: -2px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 12px;
+  height: 4px;
+  background: rgba(31, 36, 33, 0.2);
+  border-radius: 50%;
+}
+
+.field-map-pin .pin-ripple-container {
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 0;
+  height: 0;
+}
+
+.field-map-pin .pin-ripple {
+  position: absolute;
+  top: -6px;
+  left: -6px;
+  width: 12px;
+  height: 12px;
+  border: 1.5px solid var(--red);
+  border-radius: 50%;
+  opacity: 0;
+}
+
+/* ── Coordinate Typewriter ── */
+@keyframes coord-type {
+  from { width: 0; }
+  to { width: 100%; }
+}
+
+.coord-typewriter {
+  overflow: hidden;
+  white-space: nowrap;
+  animation: coord-type 0.8s steps(20) forwards;
+}
+
+/* ── Radius Slider ── */
+.radius-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 2px;
+  background: var(--ink-border);
+  outline: none;
+  cursor: pointer;
+}
+
+.radius-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--brass);
+  border: 2px solid var(--bg-card);
+  box-shadow: 0 1px 3px rgba(31, 36, 33, 0.2);
+  cursor: pointer;
+  transition: transform 0.15s ease;
+}
+
+.radius-slider::-webkit-slider-thumb:hover {
+  transform: scale(1.2);
+}
+
+.radius-slider::-webkit-slider-thumb:active {
+  transform: scale(1.1);
+  background: var(--topo-6);
+}
+
+.radius-slider::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--brass);
+  border: 2px solid var(--bg-card);
+  box-shadow: 0 1px 3px rgba(31, 36, 33, 0.2);
+  cursor: pointer;
+}
+
+/* ── Mapbox Overrides ── */
+.mapboxgl-ctrl-attrib {
+  background: transparent !important;
+  font-size: 9px !important;
+  color: var(--ink-disabled) !important;
+}
+
+.mapboxgl-ctrl-attrib a {
+  color: var(--ink-tertiary) !important;
+}
+
+.mapboxgl-canvas {
+  cursor: crosshair !important;
 }
