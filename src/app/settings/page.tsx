@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Key, Check, Eye, EyeOff, AlertCircle } from "lucide-react";
+import { Key, Check, Eye, EyeOff, AlertCircle, CheckCircle } from "lucide-react";
 
 interface ApiKeyConfig {
   key: string;
@@ -43,7 +43,9 @@ const API_KEYS: ApiKeyConfig[] = [
   },
 ];
 
-function ApiKeyInput({ config }: { config: ApiKeyConfig }) {
+type ServerKeys = Record<string, boolean>;
+
+function ApiKeyInput({ config, serverConfigured }: { config: ApiKeyConfig; serverConfigured: boolean }) {
   const [value, setValue] = useState("");
   const [saved, setSaved] = useState(false);
   const [visible, setVisible] = useState(false);
@@ -72,6 +74,37 @@ function ApiKeyInput({ config }: { config: ApiKeyConfig }) {
     setValue("");
     setHasKey(false);
   };
+
+  if (serverConfigured) {
+    return (
+      <div className="px-6 py-4 bg-paper-card border border-ink-border rounded-[2px]">
+        <div className="flex items-center gap-2">
+          <CheckCircle className="w-4 h-4 text-forest-green" />
+          <h3
+            style={{
+              fontFamily: "var(--font-serif)",
+              fontSize: "1rem",
+              fontWeight: 600,
+              color: "var(--ink-display)",
+            }}
+          >
+            {config.label}
+          </h3>
+          <span
+            className="flex items-center gap-1 px-2 py-0.5 bg-forest-green/10 text-forest-green rounded-[2px]"
+            style={{
+              fontFamily: "var(--font-sans)",
+              fontFeatureSettings: '"smcp","c2sc"',
+              letterSpacing: "0.06em",
+              fontSize: "0.5rem",
+            }}
+          >
+            Active
+          </span>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="px-6 py-5 bg-paper-card border border-ink-border rounded-[2px]">
@@ -190,11 +223,17 @@ export default function SettingsPage() {
   const [sellerCompany, setSellerCompany] = useState("");
   const [sellerSelling, setSellerSelling] = useState("");
   const [profileSaved, setProfileSaved] = useState(false);
+  const [serverKeys, setServerKeys] = useState<ServerKeys>({});
 
   useEffect(() => {
     setSellerName(localStorage.getItem("fm_seller_name") || "");
     setSellerCompany(localStorage.getItem("fm_seller_company") || "");
     setSellerSelling(localStorage.getItem("fm_seller_selling") || "");
+
+    fetch("/api/keys-status")
+      .then((r) => r.json())
+      .then((data) => setServerKeys(data))
+      .catch(() => {});
   }, []);
 
   const saveProfile = () => {
@@ -247,24 +286,25 @@ export default function SettingsPage() {
           </h2>
           <div className="space-y-3">
             {API_KEYS.map((config) => (
-              <ApiKeyInput key={config.key} config={config} />
+              <ApiKeyInput key={config.key} config={config} serverConfigured={!!serverKeys[config.key]} />
             ))}
           </div>
 
-          <div className="flex items-start gap-2 mt-4 px-4 py-3 bg-paper-mid border border-ink-border rounded-[2px]">
-            <AlertCircle className="w-4 h-4 text-brass shrink-0 mt-0.5" />
-            <p
-              style={{
-                fontFamily: "var(--font-sans)",
-                fontSize: "0.7rem",
-                color: "var(--ink-tertiary)",
-                lineHeight: 1.5,
-              }}
-            >
-              Keys are stored in your browser&apos;s localStorage and sent directly to each provider. They never touch our servers.
-              The Google Places key is also passed to the server side API route for business searches.
-            </p>
-          </div>
+          {API_KEYS.some((c) => !serverKeys[c.key]) && (
+            <div className="flex items-start gap-2 mt-4 px-4 py-3 bg-paper-mid border border-ink-border rounded-[2px]">
+              <AlertCircle className="w-4 h-4 text-brass shrink-0 mt-0.5" />
+              <p
+                style={{
+                  fontFamily: "var(--font-sans)",
+                  fontSize: "0.7rem",
+                  color: "var(--ink-tertiary)",
+                  lineHeight: 1.5,
+                }}
+              >
+                Keys are stored in your browser&apos;s localStorage and sent directly to each provider. They never touch our servers.
+              </p>
+            </div>
+          )}
         </div>
 
         {/* Seller Profile */}

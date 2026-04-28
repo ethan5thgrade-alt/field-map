@@ -8,7 +8,7 @@ import RadiusSlider from "@/components/RadiusSlider";
 import ResultCard from "@/components/ResultCard";
 import TokenInput from "@/components/TokenInput";
 import LandingPage from "@/components/LandingPage";
-import { generateMockBusinesses, type Business } from "@/lib/mockData";
+import { type Business } from "@/lib/mockData";
 import { incrementUsage, isOverLimit } from "@/lib/store";
 
 function formatCoord(value: number, pos: string, neg: string): string {
@@ -99,7 +99,6 @@ export default function Home() {
   const [results, setResults] = useState<Business[]>([]);
   const [resultsOpen, setResultsOpen] = useState(false);
   const [searching, setSearching] = useState(false);
-  const [usingRealData, setUsingRealData] = useState(false);
   const [filters, setFilters] = useState<Filters>(DEFAULT_FILTERS);
   const [filtersOpen, setFiltersOpen] = useState(false);
 
@@ -136,15 +135,7 @@ export default function Home() {
       setResultsOpen(true);
 
       const real = await fetchRealBusinesses(lat, lng, radius, cat);
-      let businesses: Business[];
-      if (real && real.length > 0) {
-        businesses = real;
-        setUsingRealData(true);
-      } else {
-        businesses = generateMockBusinesses(lat, lng, radius);
-        setUsingRealData(false);
-      }
-      setAllResults(businesses);
+      setAllResults(real || []);
       setSearching(false);
     },
     []
@@ -403,8 +394,8 @@ export default function Home() {
       {/* ── Results panel ── */}
       {(results.length > 0 || allResults.length > 0 || searching) && (
         <div
-          className="absolute top-16 right-4 bottom-4 z-20 flex flex-col bg-paper-card/95 backdrop-blur-sm border border-ink-border rounded-[2px] shadow-lg transition-all duration-300"
-          style={{ width: resultsOpen ? "360px" : "48px" }}
+          className="absolute top-16 right-2 bottom-4 left-2 sm:left-auto sm:right-4 z-20 flex flex-col bg-paper-card/95 backdrop-blur-sm border border-ink-border rounded-[2px] shadow-lg transition-all duration-300"
+          style={{ width: resultsOpen ? undefined : "48px", maxWidth: resultsOpen ? "360px" : "48px" }}
         >
           <div className="flex items-center justify-between px-4 py-3 border-b border-ink-border shrink-0">
             {resultsOpen && (
@@ -416,11 +407,6 @@ export default function Home() {
                   {searching ? "..." : results.length}
                   {!searching && results.length !== allResults.length && ` / ${allResults.length}`}
                 </span>
-                {!usingRealData && !searching && allResults.length > 0 && (
-                  <span className="px-1.5 py-0.5 bg-goldenrod/10 text-goldenrod rounded-[2px]" style={{ fontFamily: "var(--font-mono)", fontSize: "0.5rem" }}>
-                    MOCK
-                  </span>
-                )}
               </div>
             )}
             <button

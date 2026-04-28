@@ -280,7 +280,7 @@ function PricingContent() {
             color: "var(--ink-disabled)",
           }}
         >
-          Plans are stored locally for demo purposes. No real charges.
+          Cancel anytime. No long-term contracts.
         </p>
       </div>
     </div>

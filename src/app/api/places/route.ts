@@ -1,6 +1,10 @@
 import { NextRequest } from "next/server";
+import { rateLimit, getClientIp } from "@/lib/rateLimit";
 
 export const dynamic = "force-dynamic";
+
+const RATE_LIMIT = 30; // requests per window
+const RATE_WINDOW = 60_000; // 1 minute
 
 interface PlaceResult {
   id: string;
@@ -51,6 +55,15 @@ function haversineDistance(
 }
 
 export async function POST(request: NextRequest) {
+  const ip = getClientIp(request);
+  const { ok } = rateLimit(`places:${ip}`, RATE_LIMIT, RATE_WINDOW);
+  if (!ok) {
+    return Response.json(
+      { error: "Too many requests. Please wait a moment and try again." },
+      { status: 429 }
+    );
+  }
+
   try {
     const body = await request.json();
     const { lat, lng, radiusMiles, category, googleApiKey } = body;
