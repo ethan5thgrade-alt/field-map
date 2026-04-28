@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
-import { MapPin, LayoutDashboard, Star, CreditCard, Gauge } from "lucide-react";
+import { MapPin, LayoutDashboard, Star, CreditCard, Gauge, Settings } from "lucide-react";
 import { getUsage, TIERS } from "@/lib/store";
 
 const NAV_ITEMS = [
@@ -11,6 +11,7 @@ const NAV_ITEMS = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/starred", label: "Starred", icon: Star },
   { href: "/pricing", label: "Pricing", icon: CreditCard },
+  { href: "/settings", label: "Settings", icon: Settings },
 ];
 
 export default function NavBar() {

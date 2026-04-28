@@ -53,12 +53,13 @@ function haversineDistance(
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { lat, lng, radiusMiles, category } = body;
+    const { lat, lng, radiusMiles, category, googleApiKey } = body;
 
-    const apiKey = process.env.GOOGLE_PLACES_API_KEY;
+    // Accept key from client (settings page) or server env
+    const apiKey = googleApiKey || process.env.GOOGLE_PLACES_API_KEY;
     if (!apiKey) {
       return Response.json(
-        { error: "Google Places API key not configured. Add GOOGLE_PLACES_API_KEY to .env.local" },
+        { error: "Google Places API key not configured. Add it in Settings or set GOOGLE_PLACES_API_KEY in .env.local" },
         { status: 500 }
       );
     }
