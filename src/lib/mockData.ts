@@ -64,7 +64,7 @@ export function generateMockBusinesses(
   centerLat: number,
   centerLng: number,
   radiusMiles: number,
-  count: number = 15
+  count: number = 30
 ): Business[] {
   const categories = Object.keys(NAMES);
   const businesses: Business[] = [];

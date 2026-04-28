@@ -64,50 +64,77 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Build the text query based on category or generic "businesses"
-    const textQuery = category && category !== "all"
-      ? `${category} near ${lat},${lng}`
-      : `businesses near ${lat},${lng}`;
-
     const radiusMeters = Math.round(radiusMiles * 1609.34);
+    const fieldMask =
+      "places.id,places.displayName,places.formattedAddress,places.rating,places.userRatingCount,places.primaryTypeDisplayName,places.primaryType,places.nationalPhoneNumber,places.websiteUri,places.location,places.googleMapsUri";
 
-    // Google Places API (New) — Text Search
-    const searchRes = await fetch(
-      "https://places.googleapis.com/v1/places:searchText",
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "X-Goog-Api-Key": apiKey,
-          "X-Goog-FieldMask":
-            "places.id,places.displayName,places.formattedAddress,places.rating,places.userRatingCount,places.primaryTypeDisplayName,places.primaryType,places.nationalPhoneNumber,places.websiteUri,places.location,places.googleMapsUri",
-        },
-        body: JSON.stringify({
-          textQuery,
-          locationBias: {
-            circle: {
-              center: { latitude: lat, longitude: lng },
-              radius: radiusMeters,
-            },
-          },
-          maxResultCount: 20,
-        }),
-      }
-    );
-
-    if (!searchRes.ok) {
-      const errText = await searchRes.text();
-      console.error("Places API error:", searchRes.status, errText);
-      return Response.json(
-        { error: `Google Places API error: ${searchRes.status}` },
-        { status: searchRes.status }
-      );
+    // Run multiple searches to get more results
+    const queries: string[] = [];
+    if (category && category !== "all") {
+      queries.push(`${category} near ${lat},${lng}`);
+    } else {
+      // Search multiple categories to get a wider spread
+      queries.push(`businesses near ${lat},${lng}`);
+      queries.push(`restaurants near ${lat},${lng}`);
+      queries.push(`services near ${lat},${lng}`);
     }
 
-    const data = await searchRes.json();
-    const places: PlaceResult[] = data.places || [];
+    const allPlaces: PlaceResult[] = [];
+    const seenIds = new Set<string>();
 
-    // Check website status for each place (parallel, 5s timeout)
+    for (const textQuery of queries) {
+      try {
+        const searchRes = await fetch(
+          "https://places.googleapis.com/v1/places:searchText",
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "X-Goog-Api-Key": apiKey,
+              "X-Goog-FieldMask": fieldMask,
+            },
+            body: JSON.stringify({
+              textQuery,
+              locationBias: {
+                circle: {
+                  center: { latitude: lat, longitude: lng },
+                  radius: radiusMeters,
+                },
+              },
+              maxResultCount: 20,
+            }),
+          }
+        );
+
+        if (searchRes.ok) {
+          const data = await searchRes.json();
+          for (const place of (data.places || []) as PlaceResult[]) {
+            const id = place.id || "";
+            if (!seenIds.has(id)) {
+              seenIds.add(id);
+              allPlaces.push(place);
+            }
+          }
+        } else {
+          const errText = await searchRes.text();
+          console.error("Places API error for query:", textQuery, searchRes.status, errText);
+        }
+      } catch (err) {
+        console.error("Places search failed for query:", textQuery, err);
+      }
+    }
+
+    const places = allPlaces;
+
+    // Parked domain patterns to check against
+    const PARKED_PATTERNS = [
+      "godaddy", "sedo", "hugedomains", "dan.com", "afternic",
+      "domain is for sale", "buy this domain", "parked free",
+      "this domain", "coming soon", "under construction",
+      "parking page", "domainlapse",
+    ];
+
+    // Check website status for each place (parallel, 10s timeout, full GET for parked detection)
     const businesses = await Promise.all(
       places.map(async (place) => {
         const name = place.displayName?.text || "Unknown Business";
@@ -121,20 +148,28 @@ export async function POST(request: NextRequest) {
         if (websiteUrl) {
           try {
             const controller = new AbortController();
-            const timeout = setTimeout(() => controller.abort(), 5000);
+            const timeout = setTimeout(() => controller.abort(), 10000);
             const res = await fetch(websiteUrl, {
-              method: "HEAD",
+              method: "GET",
               redirect: "follow",
               signal: controller.signal,
+              headers: {
+                "User-Agent": "Mozilla/5.0 (compatible; FieldMap/1.0; website-check)",
+              },
             });
             clearTimeout(timeout);
 
             if (res.ok) {
-              // Check for parked domains
-              const contentType = res.headers.get("content-type") || "";
-              if (contentType.includes("text/html")) {
-                // Could check body for parked patterns, but HEAD is enough for now
-                websiteStatus = "working";
+              // Read body to check for parked domain patterns
+              const body = await res.text().catch(() => "");
+              const lower = body.toLowerCase();
+              const isParked = PARKED_PATTERNS.some((p) => lower.includes(p));
+
+              if (isParked) {
+                websiteStatus = "broken";
+              } else if (body.length < 200) {
+                // Suspiciously short page, likely placeholder
+                websiteStatus = "broken";
               } else {
                 websiteStatus = "working";
               }

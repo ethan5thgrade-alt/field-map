@@ -26,7 +26,7 @@ interface Filters {
 
 const DEFAULT_FILTERS: Filters = {
   category: "all",
-  websiteStatus: "any",
+  websiteStatus: "none",
   hasPhone: "any",
   minRating: 0,
   minReviews: 0,
