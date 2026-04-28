@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback, useEffect } from "react";
-import { ChevronDown, ChevronUp } from "lucide-react";
+import { ChevronDown, ChevronUp, Loader2 } from "lucide-react";
 import MapView from "@/components/MapView";
 import SearchInput from "@/components/SearchInput";
 import RadiusSlider from "@/components/RadiusSlider";
@@ -14,6 +14,34 @@ function formatCoord(value: number, pos: string, neg: string): string {
   const abs = Math.abs(value);
   const dir = value >= 0 ? pos : neg;
   return `${abs.toFixed(4)}\u00B0${dir}`;
+}
+
+async function fetchRealBusinesses(
+  lat: number,
+  lng: number,
+  radiusMiles: number
+): Promise<Business[] | null> {
+  try {
+    const res = await fetch("/api/places", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ lat, lng, radiusMiles }),
+    });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      // If no API key configured, return null to fall back to mock
+      if (res.status === 500 && data.error?.includes("not configured")) {
+        return null;
+      }
+      console.error("Places API error:", data.error);
+      return null;
+    }
+    const data = await res.json();
+    return data.businesses as Business[];
+  } catch (err) {
+    console.error("Failed to fetch businesses:", err);
+    return null;
+  }
 }
 
 export default function Home() {
@@ -32,6 +60,8 @@ export default function Home() {
   const [radiusMiles, setRadiusMiles] = useState(5);
   const [results, setResults] = useState<Business[]>([]);
   const [resultsOpen, setResultsOpen] = useState(false);
+  const [searching, setSearching] = useState(false);
+  const [usingRealData, setUsingRealData] = useState(false);
 
   useEffect(() => {
     const stored =
@@ -47,39 +77,49 @@ export default function Home() {
     []
   );
 
-  const handlePinDrop = useCallback(
-    (coords: { lat: number; lng: number }) => {
+  const searchBusinesses = useCallback(
+    async (lat: number, lng: number, radius: number) => {
       if (isOverLimit("searches")) {
         alert("You've reached your search limit. Upgrade your plan for more.");
         return;
       }
-      setPinLocation(coords);
-      setCoordinates(coords);
+
+      setPinLocation({ lat, lng });
+      setCoordinates({ lat, lng });
       incrementUsage("searches");
-      const businesses = generateMockBusinesses(coords.lat, coords.lng, radiusMiles);
-      setResults(businesses);
+      setSearching(true);
       setResultsOpen(true);
+
+      // Try real API first
+      const real = await fetchRealBusinesses(lat, lng, radius);
+      if (real && real.length > 0) {
+        setResults(real);
+        setUsingRealData(true);
+      } else {
+        // Fall back to mock data
+        setResults(generateMockBusinesses(lat, lng, radius));
+        setUsingRealData(false);
+      }
+      setSearching(false);
     },
-    [radiusMiles]
+    []
+  );
+
+  const handlePinDrop = useCallback(
+    (coords: { lat: number; lng: number }) => {
+      searchBusinesses(coords.lat, coords.lng, radiusMiles);
+    },
+    [radiusMiles, searchBusinesses]
   );
 
   const handleLocationFound = useCallback(
     (result: { lat: number; lng: number; name: string }) => {
-      if (isOverLimit("searches")) {
-        alert("You've reached your search limit. Upgrade your plan for more.");
-        return;
-      }
       setFlyTo({ lat: result.lat, lng: result.lng });
       setTimeout(() => {
-        setPinLocation({ lat: result.lat, lng: result.lng });
-        setCoordinates({ lat: result.lat, lng: result.lng });
-        incrementUsage("searches");
-        const businesses = generateMockBusinesses(result.lat, result.lng, radiusMiles);
-        setResults(businesses);
-        setResultsOpen(true);
+        searchBusinesses(result.lat, result.lng, radiusMiles);
       }, 1500);
     },
-    [radiusMiles]
+    [radiusMiles, searchBusinesses]
   );
 
   const handleTokenSet = useCallback((token: string) => {
@@ -98,7 +138,6 @@ export default function Home() {
 
   return (
     <div className="relative h-full">
-      {/* Map fills entire screen */}
       <MapView
         token={mapboxToken}
         onCoordinatesChange={handleCoordinatesChange}
@@ -111,14 +150,12 @@ export default function Home() {
       {/* ── Floating search + coords ── */}
       <div className="absolute top-0 left-0 right-0 z-20 pointer-events-none">
         <div className="flex items-center gap-3 px-4 py-3">
-          {/* Search */}
           <div className="pointer-events-auto flex-1 max-w-sm">
             <SearchInput onLocationFound={handleLocationFound} />
           </div>
 
           <div className="flex-1" />
 
-          {/* Coordinate readout */}
           <div
             className="pointer-events-auto px-3 py-2 bg-paper-card/90 backdrop-blur-sm border border-ink-border rounded-[2px] shadow-sm tabular-nums"
             style={{
@@ -151,9 +188,7 @@ export default function Home() {
             onChange={(v) => {
               setRadiusMiles(v);
               if (pinLocation) {
-                setResults(
-                  generateMockBusinesses(pinLocation.lat, pinLocation.lng, v)
-                );
+                searchBusinesses(pinLocation.lat, pinLocation.lng, v);
               }
             }}
           />
@@ -161,7 +196,7 @@ export default function Home() {
       )}
 
       {/* ── Results panel — floating right side ── */}
-      {results.length > 0 && (
+      {(results.length > 0 || searching) && (
         <div
           className="absolute top-16 right-4 bottom-4 z-20 flex flex-col bg-paper-card/95 backdrop-blur-sm border border-ink-border rounded-[2px] shadow-lg transition-all duration-300"
           style={{ width: resultsOpen ? "360px" : "48px" }}
@@ -188,8 +223,19 @@ export default function Home() {
                     color: "var(--ink-tertiary)",
                   }}
                 >
-                  {results.length}
+                  {searching ? "..." : results.length}
                 </span>
+                {!usingRealData && !searching && results.length > 0 && (
+                  <span
+                    className="px-1.5 py-0.5 bg-goldenrod/10 text-goldenrod rounded-[2px]"
+                    style={{
+                      fontFamily: "var(--font-mono)",
+                      fontSize: "0.5rem",
+                    }}
+                  >
+                    MOCK
+                  </span>
+                )}
               </div>
             )}
             <button
@@ -206,9 +252,27 @@ export default function Home() {
 
           {resultsOpen && (
             <div className="flex-1 overflow-y-auto p-3 space-y-2.5">
-              {results.map((biz, i) => (
-                <ResultCard key={biz.id} business={biz} index={i} />
-              ))}
+              {searching ? (
+                <div className="flex flex-col items-center justify-center py-12">
+                  <Loader2
+                    className="w-6 h-6 text-ink-tertiary animate-spin"
+                  />
+                  <p
+                    className="mt-3"
+                    style={{
+                      fontFamily: "var(--font-mono)",
+                      fontSize: "0.7rem",
+                      color: "var(--ink-tertiary)",
+                    }}
+                  >
+                    Searching area...
+                  </p>
+                </div>
+              ) : (
+                results.map((biz, i) => (
+                  <ResultCard key={biz.id} business={biz} index={i} />
+                ))
+              )}
             </div>
           )}
         </div>

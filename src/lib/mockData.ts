@@ -13,6 +13,7 @@ export interface Business {
   lat: number;
   lng: number;
   distanceMiles: number;
+  googleMapsUrl?: string | null;
 }
 
 const NAMES: Record<string, string[]> = {
@@ -67,10 +68,16 @@ export function generateMockBusinesses(
 ): Business[] {
   const categories = Object.keys(NAMES);
   const businesses: Business[] = [];
+  const usedNames = new Set<string>();
 
   for (let i = 0; i < count; i++) {
     const category = randomFrom(categories);
-    const name = randomFrom(NAMES[category]);
+
+    // Pick a name that hasn't been used yet
+    const available = NAMES[category].filter((n) => !usedNames.has(n));
+    if (available.length === 0) continue; // skip if all names used for this category
+    const name = randomFrom(available);
+    usedNames.add(name);
     const distanceMiles = randomBetween(0.2, radiusMiles);
 
     // Random point within radius
@@ -91,7 +98,7 @@ export function generateMockBusinesses(
 
     businesses.push({
       id: `mock-${i}-${Date.now()}`,
-      name: name + (businesses.some((b) => b.name === name) ? ` #${i}` : ""),
+      name,
       category,
       rating: Math.round(randomBetween(2.5, 5.0) * 10) / 10,
       reviewCount: Math.floor(randomBetween(3, 350)),

@@ -25,7 +25,7 @@ export default function SearchInput({ onLocationFound }: SearchInputProps) {
   // Geocode via Mapbox Geocoding API
   const geocode = async (text: string) => {
     const token =
-      localStorage.getItem("fm_mapbox_key") ||
+      (typeof window !== "undefined" ? localStorage.getItem("fm_mapbox_key") : null) ||
       process.env.NEXT_PUBLIC_MAPBOX_TOKEN ||
       "";
     if (!token || text.length < 2) {
