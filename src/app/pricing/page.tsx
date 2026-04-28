@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { Check, MapPin } from "lucide-react";
+import { useEffect, useState, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
+import { Check, CheckCircle, XCircle, Loader2 } from "lucide-react";
 import { TIERS, getUsage, setTier as setStoreTier } from "@/lib/store";
 
 const FEATURES: Record<string, string[]> = {
@@ -32,15 +33,69 @@ const FEATURES: Record<string, string[]> = {
 };
 
 export default function PricingPage() {
+  return (
+    <Suspense fallback={<div className="min-h-full bg-paper-deep" />}>
+      <PricingContent />
+    </Suspense>
+  );
+}
+
+function PricingContent() {
   const [currentTier, setCurrentTier] = useState("free");
+  const [checkoutLoading, setCheckoutLoading] = useState<string | null>(null);
+  const searchParams = useSearchParams();
+
+  const success = searchParams.get("success");
+  const successPlan = searchParams.get("plan");
+  const canceled = searchParams.get("canceled");
 
   useEffect(() => {
     setCurrentTier(getUsage().tier);
   }, []);
 
-  const handleSelect = (tier: string) => {
-    setStoreTier(tier);
-    setCurrentTier(tier);
+  // Handle successful Stripe checkout
+  useEffect(() => {
+    if (success === "true" && successPlan) {
+      setStoreTier(successPlan);
+      setCurrentTier(successPlan);
+    }
+  }, [success, successPlan]);
+
+  const handleSelect = async (tier: string) => {
+    if (tier === "free") {
+      setStoreTier(tier);
+      setCurrentTier(tier);
+      return;
+    }
+
+    // Paid tier — try Stripe checkout
+    setCheckoutLoading(tier);
+    try {
+      const res = await fetch("/api/checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ plan: tier }),
+      });
+
+      const data = await res.json();
+
+      if (data.url) {
+        window.location.href = data.url;
+        return;
+      }
+
+      // Stripe not configured — fall back to local upgrade (demo mode)
+      if (data.error?.includes("not configured") || data.error?.includes("No Stripe price")) {
+        setStoreTier(tier);
+        setCurrentTier(tier);
+      }
+    } catch {
+      // Network error — fall back to demo mode
+      setStoreTier(tier);
+      setCurrentTier(tier);
+    } finally {
+      setCheckoutLoading(null);
+    }
   };
 
   return (
@@ -71,6 +126,29 @@ export default function PricingPage() {
             Scale your cold outreach with the right tools for your territory.
           </p>
         </div>
+
+        {/* Success/cancel banners */}
+        {success === "true" && (
+          <div className="flex items-center gap-3 px-5 py-4 mb-6 bg-forest-green/10 border border-forest-green/30 rounded-[2px]">
+            <CheckCircle className="w-5 h-5 text-forest-green shrink-0" />
+            <div>
+              <p style={{ fontFamily: "var(--font-serif)", fontSize: "0.9rem", fontWeight: 600, color: "var(--ink-display)" }}>
+                Welcome to {TIERS[successPlan || "pro"]?.name || "your new plan"}!
+              </p>
+              <p style={{ fontFamily: "var(--font-sans)", fontSize: "0.75rem", color: "var(--ink-secondary)" }}>
+                Your account has been upgraded. Enjoy your expanded limits.
+              </p>
+            </div>
+          </div>
+        )}
+        {canceled === "true" && (
+          <div className="flex items-center gap-3 px-5 py-4 mb-6 bg-goldenrod/10 border border-goldenrod/30 rounded-[2px]">
+            <XCircle className="w-5 h-5 text-goldenrod shrink-0" />
+            <p style={{ fontFamily: "var(--font-sans)", fontSize: "0.8rem", color: "var(--ink-secondary)" }}>
+              Checkout was canceled. No charges were made.
+            </p>
+          </div>
+        )}
 
         {/* Pricing cards */}
         <div className="grid md:grid-cols-3 gap-5">
@@ -169,7 +247,7 @@ export default function PricingPage() {
                 {/* CTA */}
                 <button
                   onClick={() => handleSelect(key)}
-                  disabled={isActive}
+                  disabled={isActive || checkoutLoading !== null}
                   className={`w-full py-2.5 rounded-[2px] transition-all duration-150 cursor-pointer disabled:cursor-default ${
                     isActive
                       ? "bg-paper-mid border border-ink-border text-ink-tertiary"
@@ -184,7 +262,9 @@ export default function PricingPage() {
                     fontSize: "0.7rem",
                   }}
                 >
-                  {isActive ? "Current Plan" : tier.price === 0 ? "Get Started" : "Upgrade"}
+                  {checkoutLoading === key ? (
+                    <span className="flex items-center gap-2 justify-center"><Loader2 className="w-3 h-3 animate-spin" /> Processing...</span>
+                  ) : isActive ? "Current Plan" : tier.price === 0 ? "Get Started" : "Upgrade"}
                 </button>
               </div>
             );

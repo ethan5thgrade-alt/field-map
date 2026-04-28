@@ -7,6 +7,7 @@ import SearchInput from "@/components/SearchInput";
 import RadiusSlider from "@/components/RadiusSlider";
 import ResultCard from "@/components/ResultCard";
 import TokenInput from "@/components/TokenInput";
+import LandingPage from "@/components/LandingPage";
 import { generateMockBusinesses, type Business } from "@/lib/mockData";
 import { incrementUsage, isOverLimit } from "@/lib/store";
 
@@ -89,6 +90,7 @@ function applyClientFilters(businesses: Business[], filters: Filters): Business[
 export default function Home() {
   const [mapboxToken, setMapboxToken] = useState<string | null>(null);
   const [tokenChecked, setTokenChecked] = useState(false);
+  const [showSetup, setShowSetup] = useState(false);
   const [coordinates, setCoordinates] = useState<{ lat: number; lng: number } | null>(null);
   const [pinLocation, setPinLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [flyTo, setFlyTo] = useState<{ lat: number; lng: number } | null>(null);
@@ -178,7 +180,11 @@ export default function Home() {
 
   if (!tokenChecked) return null;
 
+  // No token — show landing page first, then token input
   if (!mapboxToken) {
+    if (!showSetup) {
+      return <LandingPage onGetStarted={() => setShowSetup(true)} />;
+    }
     return (
       <div className="relative h-full">
         <TokenInput onTokenSet={handleTokenSet} />
