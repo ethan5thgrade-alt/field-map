@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import { Star, ExternalLink, Trash2 } from "lucide-react";
-import { getStarred, toggleStar } from "@/lib/store";
 import type { Business } from "@/lib/mockData";
 
 function YelpIcon({ className }: { className?: string }) {
@@ -27,23 +26,33 @@ export default function StarredPage() {
   const [starred, setStarred] = useState<Business[]>([]);
 
   useEffect(() => {
-    setStarred(getStarred());
+    fetch("/api/starred")
+      .then((r) => r.json())
+      .then((data) => setStarred((data.starred || []) as Business[]))
+      .catch(() => {});
   }, []);
 
-  const handleUnstar = (business: Business) => {
-    const result = toggleStar(business);
-    setStarred(result.starred);
+  const handleUnstar = async (business: Business) => {
+    setStarred((prev) => prev.filter((b) => b.id !== business.id));
+    await fetch("/api/starred", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ businessId: business.id }),
+    });
   };
 
-  const clearAll = () => {
-    localStorage.removeItem("fm_starred");
+  const clearAll = async () => {
+    await fetch("/api/starred", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ clearAll: true }),
+    });
     setStarred([]);
   };
 
   return (
     <div className="min-h-full bg-paper-deep">
       <div className="max-w-4xl mx-auto px-6 py-10">
-        {/* Header */}
         <div className="mb-8">
           <h1
             style={{
@@ -121,7 +130,6 @@ export default function StarredPage() {
                   animationDelay: `${i * 40}ms`,
                 }}
               >
-                {/* Star */}
                 <button
                   onClick={() => handleUnstar(biz)}
                   className="shrink-0 mt-0.5 text-goldenrod hover:text-surveyor-red transition-colors cursor-pointer"
@@ -130,7 +138,6 @@ export default function StarredPage() {
                   <Star className="w-4 h-4 fill-current" />
                 </button>
 
-                {/* Content */}
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-1">
                     <span
@@ -179,7 +186,6 @@ export default function StarredPage() {
                     )}
                   </p>
 
-                  {/* Links */}
                   <div className="flex items-center gap-3">
                     <a
                       href={biz.yelpUrl}
@@ -216,7 +222,6 @@ export default function StarredPage() {
                   </div>
                 </div>
 
-                {/* Website status */}
                 <div className="shrink-0 flex items-center gap-1.5" style={{ fontSize: "0.6rem", fontFeatureSettings: '"smcp","c2sc"', letterSpacing: "0.06em", color: "var(--ink-tertiary)" }}>
                   <span
                     className={`w-1.5 h-1.5 rounded-full ${

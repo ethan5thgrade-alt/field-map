@@ -1,10 +1,12 @@
 import { NextRequest } from "next/server";
 import { rateLimit, getClientIp } from "@/lib/rateLimit";
+import { getOptionalUser, isOverLimit } from "@/lib/auth";
+import { getOrCreateUsage, incrementUsageField } from "@/lib/db/queries";
 
 export const dynamic = "force-dynamic";
 
-const RATE_LIMIT = 30; // requests per window
-const RATE_WINDOW = 60_000; // 1 minute
+const RATE_LIMIT = 30;
+const RATE_WINDOW = 60_000;
 
 interface PlaceResult {
   id: string;
@@ -20,7 +22,6 @@ interface PlaceResult {
   googleMapsUri?: string;
 }
 
-// Map Google place types to our categories
 function categorize(primaryType: string | undefined): string {
   if (!primaryType) return "business";
   const t = primaryType.toLowerCase();
@@ -39,11 +40,8 @@ function categorize(primaryType: string | undefined): string {
   return "business";
 }
 
-function haversineDistance(
-  lat1: number, lng1: number,
-  lat2: number, lng2: number
-): number {
-  const R = 3958.8; // Earth radius in miles
+function haversineDistance(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const R = 3958.8;
   const dLat = ((lat2 - lat1) * Math.PI) / 180;
   const dLng = ((lng2 - lng1) * Math.PI) / 180;
   const a =
@@ -64,15 +62,27 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  // Server-side usage enforcement
+  const user = await getOptionalUser();
+  if (user) {
+    const currentUsage = await getOrCreateUsage(user.id);
+    if (isOverLimit(currentUsage, user.tier, "searches")) {
+      return Response.json(
+        { error: "Search limit reached. Upgrade your plan for more." },
+        { status: 403 }
+      );
+    }
+    await incrementUsageField(user.id, "searches");
+  }
+
   try {
     const body = await request.json();
-    const { lat, lng, radiusMiles, category, googleApiKey } = body;
+    const { lat, lng, radiusMiles, category } = body;
 
-    // Accept key from client (settings page) or server env
-    const apiKey = googleApiKey || process.env.GOOGLE_PLACES_API_KEY;
+    const apiKey = process.env.GOOGLE_PLACES_API_KEY;
     if (!apiKey) {
       return Response.json(
-        { error: "Google Places API key not configured. Add it in Settings or set GOOGLE_PLACES_API_KEY in .env.local" },
+        { error: "Google Places API key not configured." },
         { status: 500 }
       );
     }
@@ -81,12 +91,10 @@ export async function POST(request: NextRequest) {
     const fieldMask =
       "places.id,places.displayName,places.formattedAddress,places.rating,places.userRatingCount,places.primaryTypeDisplayName,places.primaryType,places.nationalPhoneNumber,places.websiteUri,places.location,places.googleMapsUri";
 
-    // Run multiple searches to get more results
     const queries: string[] = [];
     if (category && category !== "all") {
       queries.push(`${category} near ${lat},${lng}`);
     } else {
-      // Search multiple categories to get a wider spread
       queries.push(`businesses near ${lat},${lng}`);
       queries.push(`restaurants near ${lat},${lng}`);
       queries.push(`services near ${lat},${lng}`);
@@ -137,9 +145,6 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    const places = allPlaces;
-
-    // Parked domain patterns to check against
     const PARKED_PATTERNS = [
       "godaddy", "sedo", "hugedomains", "dan.com", "afternic",
       "domain is for sale", "buy this domain", "parked free",
@@ -147,9 +152,8 @@ export async function POST(request: NextRequest) {
       "parking page", "domainlapse",
     ];
 
-    // Check website status for each place (parallel, 10s timeout, full GET for parked detection)
     const businesses = await Promise.all(
-      places.map(async (place) => {
+      allPlaces.map(async (place) => {
         const name = place.displayName?.text || "Unknown Business";
         const placeLat = place.location?.latitude || lat;
         const placeLng = place.location?.longitude || lng;
@@ -160,41 +164,52 @@ export async function POST(request: NextRequest) {
 
         if (websiteUrl) {
           try {
-            const controller = new AbortController();
-            const timeout = setTimeout(() => controller.abort(), 10000);
-            const res = await fetch(websiteUrl, {
-              method: "GET",
+            const headController = new AbortController();
+            const headTimeout = setTimeout(() => headController.abort(), 3000);
+            const headRes = await fetch(websiteUrl, {
+              method: "HEAD",
               redirect: "follow",
-              signal: controller.signal,
-              headers: {
-                "User-Agent": "Mozilla/5.0 (compatible; Sitelab/1.0; website-check)",
-              },
+              signal: headController.signal,
+              headers: { "User-Agent": "Mozilla/5.0 (compatible; Sitelab/1.0; website-check)" },
             });
-            clearTimeout(timeout);
+            clearTimeout(headTimeout);
 
-            if (res.ok) {
-              // Read body to check for parked domain patterns
-              const body = await res.text().catch(() => "");
-              const lower = body.toLowerCase();
-              const isParked = PARKED_PATTERNS.some((p) => lower.includes(p));
+            if (!headRes.ok) {
+              websiteStatus = "broken";
+            } else {
+              const getController = new AbortController();
+              const getTimeout = setTimeout(() => getController.abort(), 4000);
+              try {
+                const getRes = await fetch(websiteUrl, {
+                  method: "GET",
+                  redirect: "follow",
+                  signal: getController.signal,
+                  headers: { "User-Agent": "Mozilla/5.0 (compatible; Sitelab/1.0; website-check)" },
+                });
+                clearTimeout(getTimeout);
 
-              if (isParked) {
-                websiteStatus = "broken";
-              } else if (body.length < 200) {
-                // Suspiciously short page, likely placeholder
-                websiteStatus = "broken";
-              } else {
+                if (getRes.ok) {
+                  const body = await getRes.text().catch(() => "");
+                  const lower = body.toLowerCase();
+                  const isParked = PARKED_PATTERNS.some((p) => lower.includes(p));
+                  if (isParked) {
+                    websiteStatus = "broken";
+                  } else if (body.length < 200) {
+                    websiteStatus = "broken";
+                  } else {
+                    websiteStatus = "working";
+                  }
+                } else {
+                  websiteStatus = "broken";
+                }
+              } catch {
                 websiteStatus = "working";
               }
-            } else {
-              websiteStatus = "broken";
             }
           } catch {
             websiteStatus = "broken";
           }
         }
-
-        const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/-+$/, "");
 
         return {
           id: place.id || `place-${Date.now()}-${Math.random()}`,
@@ -216,7 +231,6 @@ export async function POST(request: NextRequest) {
       })
     );
 
-    // Sort by distance, deduplicate by name
     const seen = new Set<string>();
     const deduped = businesses
       .sort((a, b) => a.distanceMiles - b.distanceMiles)
@@ -230,9 +244,6 @@ export async function POST(request: NextRequest) {
     return Response.json({ businesses: deduped });
   } catch (err) {
     console.error("Places route error:", err);
-    return Response.json(
-      { error: "Internal server error" },
-      { status: 500 }
-    );
+    return Response.json({ error: "Internal server error" }, { status: 500 });
   }
 }

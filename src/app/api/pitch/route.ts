@@ -1,10 +1,12 @@
 import { NextRequest } from "next/server";
 import { rateLimit, getClientIp } from "@/lib/rateLimit";
+import { getOptionalUser, isOverLimit } from "@/lib/auth";
+import { getOrCreateUsage, incrementUsageField } from "@/lib/db/queries";
 
 export const dynamic = "force-dynamic";
 
-const RATE_LIMIT = 20; // requests per window
-const RATE_WINDOW = 60_000; // 1 minute
+const RATE_LIMIT = 20;
+const RATE_WINDOW = 60_000;
 
 export async function POST(request: NextRequest) {
   const ip = getClientIp(request);
@@ -16,10 +18,22 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  // Server-side usage enforcement
+  const user = await getOptionalUser();
+  if (user) {
+    const currentUsage = await getOrCreateUsage(user.id);
+    if (isOverLimit(currentUsage, user.tier, "pitches")) {
+      return Response.json(
+        { error: "Pitch limit reached. Upgrade your plan for more." },
+        { status: 403 }
+      );
+    }
+    await incrementUsageField(user.id, "pitches");
+  }
+
   try {
     const body = await request.json();
     const {
-      anthropicKey,
       businessName,
       businessCategory,
       businessAddress,
@@ -35,10 +49,10 @@ export async function POST(request: NextRequest) {
       sellerSelling,
     } = body;
 
-    const apiKey = anthropicKey || process.env.ANTHROPIC_API_KEY;
+    const apiKey = process.env.ANTHROPIC_API_KEY;
     if (!apiKey) {
       return Response.json(
-        { error: "Anthropic API key not configured. Add it in Settings." },
+        { error: "AI pitch generation is not available." },
         { status: 400 }
       );
     }
@@ -141,9 +155,6 @@ Keep it concise. No more than 200 words for the body. Make every sentence count.
     return Response.json({ pitch: text });
   } catch (err) {
     console.error("Pitch generation error:", err);
-    return Response.json(
-      { error: "Failed to generate pitch" },
-      { status: 500 }
-    );
+    return Response.json({ error: "Failed to generate pitch" }, { status: 500 });
   }
 }

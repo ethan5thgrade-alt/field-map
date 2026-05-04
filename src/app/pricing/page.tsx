@@ -3,7 +3,8 @@
 import { useEffect, useState, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { Check, CheckCircle, XCircle, Loader2 } from "lucide-react";
-import { TIERS, getUsage, setTier as setStoreTier } from "@/lib/store";
+import { useUser } from "@clerk/nextjs";
+import { TIERS } from "@/lib/store";
 
 const FEATURES: Record<string, string[]> = {
   free: [
@@ -14,9 +15,9 @@ const FEATURES: Record<string, string[]> = {
     "Yelp & Instagram links",
   ],
   pro: [
-    "100 searches per month",
-    "50 pitch generations",
-    "200 starred businesses",
+    "500 searches per month",
+    "100 pitch generations",
+    "500 starred businesses",
     "Everything in Scout",
     "Priority geocoding",
     "Export starred as CSV",
@@ -44,31 +45,38 @@ function PricingContent() {
   const [currentTier, setCurrentTier] = useState("free");
   const [checkoutLoading, setCheckoutLoading] = useState<string | null>(null);
   const searchParams = useSearchParams();
+  const { isSignedIn } = useUser();
 
   const success = searchParams.get("success");
   const successPlan = searchParams.get("plan");
   const canceled = searchParams.get("canceled");
 
   useEffect(() => {
-    setCurrentTier(getUsage().tier);
+    // Fetch tier from server
+    fetch("/api/usage")
+      .then((r) => r.json())
+      .then((data) => setCurrentTier(data.tier || "free"))
+      .catch(() => {});
   }, []);
 
-  // Handle successful Stripe checkout
+  // If just returned from successful checkout, refresh tier
   useEffect(() => {
-    if (success === "true" && successPlan) {
-      setStoreTier(successPlan);
-      setCurrentTier(successPlan);
+    if (success === "true") {
+      fetch("/api/usage")
+        .then((r) => r.json())
+        .then((data) => setCurrentTier(data.tier || "free"))
+        .catch(() => {});
     }
-  }, [success, successPlan]);
+  }, [success]);
 
   const handleSelect = async (tier: string) => {
-    if (tier === "free") {
-      setStoreTier(tier);
-      setCurrentTier(tier);
+    if (tier === "free") return;
+
+    if (!isSignedIn) {
+      window.location.href = "/sign-up";
       return;
     }
 
-    // Paid tier — try Stripe checkout
     setCheckoutLoading(tier);
     try {
       const res = await fetch("/api/checkout", {
@@ -84,15 +92,11 @@ function PricingContent() {
         return;
       }
 
-      // Stripe not configured — fall back to local upgrade (demo mode)
-      if (data.error?.includes("not configured") || data.error?.includes("No Stripe price")) {
-        setStoreTier(tier);
-        setCurrentTier(tier);
+      if (data.error) {
+        alert(data.error);
       }
     } catch {
-      // Network error — fall back to demo mode
-      setStoreTier(tier);
-      setCurrentTier(tier);
+      alert("Something went wrong. Please try again.");
     } finally {
       setCheckoutLoading(null);
     }
@@ -179,7 +183,6 @@ function PricingContent() {
                   </div>
                 )}
 
-                {/* Tier name */}
                 <p
                   style={{
                     fontFamily: "var(--font-sans)",
@@ -193,7 +196,6 @@ function PricingContent() {
                   {tier.name}
                 </p>
 
-                {/* Price */}
                 <div className="flex items-baseline gap-1 mb-6">
                   <span
                     style={{
@@ -218,7 +220,6 @@ function PricingContent() {
                   )}
                 </div>
 
-                {/* Features */}
                 <ul className="flex-1 space-y-2.5 mb-8">
                   {FEATURES[key].map((feature) => (
                     <li
@@ -244,12 +245,13 @@ function PricingContent() {
                   ))}
                 </ul>
 
-                {/* CTA */}
                 <button
                   onClick={() => handleSelect(key)}
-                  disabled={isActive || checkoutLoading !== null}
+                  disabled={isActive || key === "free" || checkoutLoading !== null}
                   className={`w-full py-2.5 rounded-[2px] transition-all duration-150 cursor-pointer disabled:cursor-default ${
                     isActive
+                      ? "bg-paper-mid border border-ink-border text-ink-tertiary"
+                      : key === "free"
                       ? "bg-paper-mid border border-ink-border text-ink-tertiary"
                       : isPro
                       ? "bg-surveyor-red text-paper-card hover:bg-surveyor-red-pressed active:translate-y-px"
@@ -264,14 +266,13 @@ function PricingContent() {
                 >
                   {checkoutLoading === key ? (
                     <span className="flex items-center gap-2 justify-center"><Loader2 className="w-3 h-3 animate-spin" /> Processing...</span>
-                  ) : isActive ? "Current Plan" : tier.price === 0 ? "Get Started" : "Upgrade"}
+                  ) : isActive ? "Current Plan" : key === "free" ? "Free Forever" : "Upgrade"}
                 </button>
               </div>
             );
           })}
         </div>
 
-        {/* Note */}
         <p
           className="text-center mt-8"
           style={{

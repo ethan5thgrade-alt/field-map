@@ -7,6 +7,7 @@ import {
 } from "next/font/google";
 import "./globals.css";
 import NavBar from "@/components/NavBar";
+import { ClerkProvider } from "@clerk/nextjs";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -64,14 +65,16 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html
-      lang="en"
-      className={`${inter.variable} ${jetbrainsMono.variable} ${fraunces.variable} ${sourceSerif.variable} h-full`}
-    >
-      <body className="h-full flex flex-col overflow-hidden">
-        <NavBar />
-        <div className="flex-1 overflow-auto">{children}</div>
-      </body>
-    </html>
+    <ClerkProvider>
+      <html
+        lang="en"
+        className={`${inter.variable} ${jetbrainsMono.variable} ${fraunces.variable} ${sourceSerif.variable} h-full`}
+      >
+        <body className="h-full flex flex-col overflow-hidden">
+          <NavBar />
+          <div className="flex-1 overflow-auto">{children}</div>
+        </body>
+      </html>
+    </ClerkProvider>
   );
 }

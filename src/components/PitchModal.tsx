@@ -22,13 +22,36 @@ const TONE_OPTIONS: { value: EmailTone; label: string; icon: typeof Briefcase }[
   { value: "custom", label: "Write Your Own", icon: Pencil },
 ];
 
+let cachedProfile: { name: string; company: string; selling: string } | null = null;
+
 function getSellerProfile() {
+  if (cachedProfile) return cachedProfile;
+  // Fallback to localStorage for immediate rendering, server data will override
   if (typeof window === "undefined") return { name: "", company: "", selling: "" };
   return {
     name: localStorage.getItem("fm_seller_name") || "",
     company: localStorage.getItem("fm_seller_company") || "",
     selling: localStorage.getItem("fm_seller_selling") || "",
   };
+}
+
+async function loadSellerProfile() {
+  try {
+    const res = await fetch("/api/profile");
+    if (res.ok) {
+      const data = await res.json();
+      cachedProfile = {
+        name: data.sellerName || "",
+        company: data.sellerCompany || "",
+        selling: data.sellerSelling || "",
+      };
+    }
+  } catch {}
+}
+
+// Pre-fetch profile
+if (typeof window !== "undefined") {
+  loadSellerProfile();
 }
 
 function injectSellerProfile(text: string): string {
@@ -53,12 +76,6 @@ async function fetchAIPitch(
   pitchType: "cold-call" | "email",
   tone: string,
 ): Promise<string | null> {
-  const anthropicKey = typeof window !== "undefined"
-    ? localStorage.getItem("fm_anthropic_key")
-    : null;
-
-  if (!anthropicKey) return null;
-
   const seller = getSellerProfile();
 
   try {
@@ -66,7 +83,6 @@ async function fetchAIPitch(
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        anthropicKey,
         businessName: business.name,
         businessCategory: business.category,
         businessAddress: business.address,
@@ -83,7 +99,13 @@ async function fetchAIPitch(
       }),
     });
 
-    if (!res.ok) return null;
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      if (res.status === 403) {
+        alert(data.error || "Pitch limit reached");
+      }
+      return null;
+    }
     const data = await res.json();
     return data.pitch || null;
   } catch {

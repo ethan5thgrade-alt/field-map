@@ -3,7 +3,6 @@
 import { useState, useEffect } from "react";
 import { Phone as PhoneIcon, Mail, ExternalLink, Star } from "lucide-react";
 import type { Business } from "@/lib/mockData";
-import { isStarred as checkStarred, toggleStar, savePitch, isOverLimit } from "@/lib/store";
 import PitchModal from "./PitchModal";
 
 interface ResultCardProps {
@@ -50,38 +49,57 @@ function InstagramIcon({ className }: { className?: string }) {
 
 export default function ResultCard({ business, index }: ResultCardProps) {
   const [starred, setStarred] = useState(false);
-
-  useEffect(() => {
-    setStarred(checkStarred(business.id));
-  }, [business.id]);
-
-  const handleStar = () => {
-    if (!starred && isOverLimit("starred")) {
-      alert("You've reached your starred businesses limit. Upgrade your plan for more.");
-      return;
-    }
-    const result = toggleStar(business);
-    setStarred(result.added);
-  };
-
   const [modalType, setModalType] = useState<"cold-call" | "email" | null>(null);
 
-  const handlePitch = (type: "cold-call" | "email") => {
-    if (isOverLimit("pitches")) {
-      alert("You've reached your pitch generation limit. Upgrade your plan for more.");
-      return;
+  useEffect(() => {
+    // Check starred status from server
+    fetch("/api/starred")
+      .then((r) => r.json())
+      .then((data) => {
+        const list = data.starred || [];
+        setStarred(list.some((b: Business) => b.id === business.id));
+      })
+      .catch(() => {});
+  }, [business.id]);
+
+  const handleStar = async () => {
+    if (starred) {
+      setStarred(false);
+      await fetch("/api/starred", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ businessId: business.id }),
+      });
+    } else {
+      const res = await fetch("/api/starred", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ businessId: business.id, data: business }),
+      });
+      if (res.ok) {
+        setStarred(true);
+      } else {
+        const data = await res.json().catch(() => ({}));
+        alert(data.error || "Failed to star");
+      }
     }
-    savePitch({
-      id: `pitch-${Date.now()}`,
-      businessName: business.name,
-      businessCategory: business.category,
-      type,
-      date: new Date().toISOString(),
-      preview:
-        type === "cold-call"
-          ? `Hi, I noticed ${business.name} doesn't have a strong online presence yet...`
-          : `Subject: Grow ${business.name}'s online presence — quick idea...`,
-    });
+  };
+
+  const handlePitch = async (type: "cold-call" | "email") => {
+    // Save pitch record to server
+    await fetch("/api/pitches", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        businessName: business.name,
+        businessCategory: business.category,
+        type,
+        preview:
+          type === "cold-call"
+            ? `Hi, I noticed ${business.name} doesn't have a strong online presence yet...`
+            : `Subject: Grow ${business.name}'s online presence — quick idea...`,
+      }),
+    }).catch(() => {});
     setModalType(type);
   };
 
@@ -101,10 +119,8 @@ export default function ResultCard({ business, index }: ResultCardProps) {
         animationDelay: `${index * 60}ms`,
       }}
     >
-      {/* Dog-ear on hover */}
       <div className="absolute top-0 right-0 w-0 h-0 border-l-[12px] border-l-transparent border-t-[12px] border-t-ink-border opacity-0 group-hover:opacity-40 transition-opacity duration-200 rounded-tr-[4px]" />
 
-      {/* Name + star + rating */}
       <div className="flex items-start gap-2 mb-1.5">
         <button
           onClick={handleStar}
@@ -143,7 +159,6 @@ export default function ResultCard({ business, index }: ResultCardProps) {
         </span>
       </div>
 
-      {/* Address */}
       <p
         className="mb-2 pl-6"
         style={{
@@ -155,7 +170,6 @@ export default function ResultCard({ business, index }: ResultCardProps) {
         {business.address}
       </p>
 
-      {/* Status badges */}
       <div
         className="flex flex-wrap gap-x-3 gap-y-1 mb-2.5 pl-6"
         style={{
@@ -195,7 +209,6 @@ export default function ResultCard({ business, index }: ResultCardProps) {
         </span>
       </div>
 
-      {/* External links */}
       <div className="flex items-center gap-3 mb-2.5 pl-6">
         <a
           href={business.yelpUrl}
@@ -246,10 +259,8 @@ export default function ResultCard({ business, index }: ResultCardProps) {
         )}
       </div>
 
-      {/* Dashed divider */}
       <div className="border-t border-dashed border-ink-border mb-2.5" />
 
-      {/* Action buttons — fade in on hover */}
       <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
         <button
           onClick={() => handlePitch("cold-call")}

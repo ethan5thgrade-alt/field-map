@@ -2,21 +2,32 @@
 
 import { useEffect, useState } from "react";
 import { Phone, Mail, Trash2 } from "lucide-react";
-import { getSentPitches, type SentPitch } from "@/lib/store";
+
+interface SentPitch {
+  id: string;
+  businessName: string;
+  businessCategory: string;
+  type: "cold-call" | "email";
+  date: string;
+  preview: string;
+}
 
 export default function DashboardPage() {
   const [pitches, setPitches] = useState<SentPitch[]>([]);
   const [filter, setFilter] = useState<"all" | "cold-call" | "email">("all");
 
   useEffect(() => {
-    setPitches(getSentPitches());
+    fetch("/api/pitches")
+      .then((r) => r.json())
+      .then((data) => setPitches(data.pitches || []))
+      .catch(() => {});
   }, []);
 
   const filtered =
     filter === "all" ? pitches : pitches.filter((p) => p.type === filter);
 
-  const clearAll = () => {
-    localStorage.removeItem("fm_pitches");
+  const clearAll = async () => {
+    await fetch("/api/pitches", { method: "DELETE" });
     setPitches([]);
   };
 
@@ -174,7 +185,6 @@ export default function DashboardPage() {
                   animationDelay: `${i * 40}ms`,
                 }}
               >
-                {/* Icon */}
                 <div
                   className={`flex items-center justify-center w-8 h-8 rounded-[2px] shrink-0 ${
                     pitch.type === "cold-call"
@@ -189,7 +199,6 @@ export default function DashboardPage() {
                   )}
                 </div>
 
-                {/* Content */}
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-1">
                     <span
@@ -227,7 +236,6 @@ export default function DashboardPage() {
                   </p>
                 </div>
 
-                {/* Date */}
                 <span
                   className="shrink-0"
                   style={{

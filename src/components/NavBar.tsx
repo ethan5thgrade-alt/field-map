@@ -4,7 +4,8 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { MapPin, LayoutDashboard, Star, CreditCard, Gauge, Settings, Menu, X } from "lucide-react";
-import { getUsage, TIERS } from "@/lib/store";
+import { UserButton, useUser } from "@clerk/nextjs";
+import { TIERS } from "@/lib/store";
 
 const NAV_ITEMS = [
   { href: "/", label: "Map", icon: MapPin },
@@ -16,16 +17,15 @@ const NAV_ITEMS = [
 
 export default function NavBar() {
   const pathname = usePathname();
-  const [usage, setUsage] = useState({ searches: 0, pitches: 0, starred: 0, tier: "free" });
+  const [usage, setUsage] = useState({ searches: 0, pitches: 0, starred: 0, tier: "free", limits: { searches: 10, pitches: 5, starred: 15 } });
   const [mobileOpen, setMobileOpen] = useState(false);
+  const { isSignedIn } = useUser();
 
   useEffect(() => {
-    const u = getUsage();
-    setUsage(u);
-
-    const handleFocus = () => setUsage(getUsage());
-    window.addEventListener("focus", handleFocus);
-    return () => window.removeEventListener("focus", handleFocus);
+    fetch("/api/usage")
+      .then((r) => r.json())
+      .then((data) => setUsage(data))
+      .catch(() => {});
   }, [pathname]);
 
   useEffect(() => {
@@ -33,6 +33,7 @@ export default function NavBar() {
   }, [pathname]);
 
   const tier = TIERS[usage.tier] || TIERS.free;
+  const limits = usage.limits || tier.limits;
 
   return (
     <nav className="relative z-30 border-b border-ink-border bg-paper-mid/90 backdrop-blur-sm">
@@ -83,12 +84,12 @@ export default function NavBar() {
           </div>
         </div>
 
-        {/* Right: usage meter (desktop) + mobile menu button */}
+        {/* Right: usage meter (desktop) + auth + mobile menu button */}
         <div className="flex items-center gap-4">
           <div className="hidden lg:flex items-center gap-3">
-            <UsagePill label="Searches" used={usage.searches} limit={tier.limits.searches} />
-            <UsagePill label="Pitches" used={usage.pitches} limit={tier.limits.pitches} />
-            <UsagePill label="Starred" used={usage.starred} limit={tier.limits.starred} />
+            <UsagePill label="Searches" used={usage.searches} limit={limits.searches} />
+            <UsagePill label="Pitches" used={usage.pitches} limit={limits.pitches} />
+            <UsagePill label="Starred" used={usage.starred} limit={limits.starred} />
           </div>
 
           <div
@@ -104,6 +105,24 @@ export default function NavBar() {
             <Gauge className="w-3 h-3 text-brass" />
             {tier.name}
           </div>
+
+          {/* Auth buttons */}
+          {isSignedIn ? (
+            <UserButton />
+          ) : (
+            <Link
+              href="/sign-in"
+              className="hidden md:flex items-center px-3 py-1.5 bg-surveyor-red text-paper-card rounded-[2px] hover:bg-surveyor-red-pressed transition-colors"
+              style={{
+                fontFamily: "var(--font-sans)",
+                fontFeatureSettings: '"smcp","c2sc"',
+                letterSpacing: "0.08em",
+                fontSize: "0.6rem",
+              }}
+            >
+              Sign In
+            </Link>
+          )}
 
           {/* Mobile menu toggle */}
           <button
@@ -142,11 +161,21 @@ export default function NavBar() {
             );
           })}
 
+          {!isSignedIn && (
+            <Link
+              href="/sign-in"
+              className="flex items-center justify-center gap-2 px-3 py-2.5 mt-2 bg-surveyor-red text-paper-card rounded-[2px]"
+              style={{ fontFamily: "var(--font-sans)", fontFeatureSettings: '"smcp","c2sc"', letterSpacing: "0.08em", fontSize: "0.7rem" }}
+            >
+              Sign In
+            </Link>
+          )}
+
           {/* Mobile usage + tier */}
           <div className="flex items-center justify-between pt-3 mt-2 border-t border-ink-border">
             <div className="flex items-center gap-3">
-              <UsagePill label="Searches" used={usage.searches} limit={tier.limits.searches} />
-              <UsagePill label="Pitches" used={usage.pitches} limit={tier.limits.pitches} />
+              <UsagePill label="Searches" used={usage.searches} limit={limits.searches} />
+              <UsagePill label="Pitches" used={usage.pitches} limit={limits.pitches} />
             </div>
             <div
               className="flex items-center gap-1.5 px-2.5 py-1 border border-ink-border rounded-[2px] bg-paper-mid"

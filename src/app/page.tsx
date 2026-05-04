@@ -9,7 +9,7 @@ import ResultCard from "@/components/ResultCard";
 import TokenInput from "@/components/TokenInput";
 import LandingPage from "@/components/LandingPage";
 import { type Business } from "@/lib/mockData";
-import { incrementUsage, isOverLimit } from "@/lib/store";
+import { useUser } from "@clerk/nextjs";
 
 function formatCoord(value: number, pos: string, neg: string): string {
   const abs = Math.abs(value);
@@ -42,13 +42,8 @@ async function fetchRealBusinesses(
   lng: number,
   radiusMiles: number,
   category: string,
-): Promise<Business[] | null> {
+): Promise<{ businesses: Business[] | null; error?: string }> {
   try {
-    const googleApiKey =
-      typeof window !== "undefined"
-        ? localStorage.getItem("fm_google_places_key")
-        : null;
-
     const res = await fetch("/api/places", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -57,22 +52,24 @@ async function fetchRealBusinesses(
         lng,
         radiusMiles,
         category: category !== "all" ? category : undefined,
-        googleApiKey: googleApiKey || undefined,
       }),
     });
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
+      if (res.status === 403) {
+        return { businesses: null, error: data.error || "Limit reached" };
+      }
       if (res.status === 500 && data.error?.includes("not configured")) {
-        return null;
+        return { businesses: null };
       }
       console.error("Places API error:", data.error);
-      return null;
+      return { businesses: null };
     }
     const data = await res.json();
-    return data.businesses as Business[];
+    return { businesses: data.businesses as Business[] };
   } catch (err) {
     console.error("Failed to fetch businesses:", err);
-    return null;
+    return { businesses: null };
   }
 }
 
@@ -102,11 +99,10 @@ export default function Home() {
   const [filters, setFilters] = useState<Filters>(DEFAULT_FILTERS);
   const [filtersOpen, setFiltersOpen] = useState(false);
 
+  const { isSignedIn } = useUser();
+
   useEffect(() => {
-    const stored =
-      localStorage.getItem("fm_mapbox_key") ||
-      process.env.NEXT_PUBLIC_MAPBOX_TOKEN ||
-      null;
+    const stored = process.env.NEXT_PUBLIC_MAPBOX_TOKEN || null;
     if (stored) setMapboxToken(stored);
     setTokenChecked(true);
   }, []);
@@ -123,19 +119,18 @@ export default function Home() {
 
   const searchBusinesses = useCallback(
     async (lat: number, lng: number, radius: number, cat: string) => {
-      if (isOverLimit("searches")) {
-        alert("You've reached your search limit. Upgrade your plan for more.");
-        return;
-      }
-
       setPinLocation({ lat, lng });
       setCoordinates({ lat, lng });
-      incrementUsage("searches");
       setSearching(true);
       setResultsOpen(true);
 
-      const real = await fetchRealBusinesses(lat, lng, radius, cat);
-      setAllResults(real || []);
+      const { businesses, error } = await fetchRealBusinesses(lat, lng, radius, cat);
+      if (error) {
+        alert(error);
+        setSearching(false);
+        return;
+      }
+      setAllResults(businesses || []);
       setSearching(false);
     },
     []
@@ -171,16 +166,12 @@ export default function Home() {
 
   if (!tokenChecked) return null;
 
-  // No token — show landing page first, then token input
+  // No Mapbox token configured — show landing page
   if (!mapboxToken) {
-    if (!showSetup) {
-      return <LandingPage onGetStarted={() => setShowSetup(true)} />;
+    if (!isSignedIn) {
+      return <LandingPage onGetStarted={() => { window.location.href = "/sign-up"; }} />;
     }
-    return (
-      <div className="relative h-full">
-        <TokenInput onTokenSet={handleTokenSet} />
-      </div>
-    );
+    return <LandingPage onGetStarted={() => {}} />;
   }
 
   return (
