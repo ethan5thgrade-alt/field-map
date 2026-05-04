@@ -9,17 +9,20 @@ const isPublicRoute = createRouteMatcher([
   "/api/keys-status",
 ]);
 
-export default clerkMiddleware(async (auth, request) => {
+const handler = clerkMiddleware(async (auth, request) => {
   if (!isPublicRoute(request)) {
     await auth.protect();
   }
 });
 
+// Next.js 16 uses "proxy" instead of "middleware"
+export function proxy(...args: Parameters<typeof handler>) {
+  return handler(...args);
+}
+
 export const config = {
   matcher: [
-    // Skip Next.js internals and static files
     "/((?!_next|[^?]*\\.(?:html?|css|js(?!on)|jpe?g|webp|png|gif|svg|ttf|woff2?|ico|csv|docx?|xlsx?|zip|webmanifest)).*)",
-    // Always run for API routes
     "/(api|trpc)(.*)",
   ],
 };
